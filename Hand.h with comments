@@ -6,38 +6,47 @@
 #include "Board.h"
 
 // methods for hands
+//Класс Хэнд отвечают за обработку ввода пользователя(мышь окно)
 class Hand
 {
   public:
+Конструктор-сохраняем указатель на доску
     Hand(Board *board) : board(board)
     {
     }
+    //получение клика пользователя по кнопке 
     tuple<Response, POS_T, POS_T> get_cell() const
     {
         SDL_Event windowEvent;
-        Response resp = Response::OK;
-        int x = -1, y = -1;
-        int xc = -1, yc = -1;
-        while (true)
+        Response resp = Response::OK;//результат действия
+        int x = -1, y = -1;//координаты мыши(пикселях)
+        int xc = -1, yc = -1;//координаты клетки(в логике доски)
+     //ожидание события
+      while (true)
         {
             if (SDL_PollEvent(&windowEvent))
             {
                 switch (windowEvent.type)
                 {
                 case SDL_QUIT:
-                    resp = Response::QUIT;
+                    resp = Response::QUIT;//закрытие окна
                     break;
                 case SDL_MOUSEBUTTONDOWN:
+                  //координаты клика
                     x = windowEvent.motion.x;
                     y = windowEvent.motion.y;
+                  //перевод пикселей в координаты доски
                     xc = int(y / (board->H / 10) - 1);
                     yc = int(x / (board->W / 10) - 1);
+                  //кнопка "назад"
                     if (xc == -1 && yc == -1 && board->history_mtx.size() > 1)
                     {
                         resp = Response::BACK;
                     }
+                   //кнопка "перезапуск"
                     else if (xc == -1 && yc == 8)
                     {
+                      //клик по клетки доски
                         resp = Response::REPLAY;
                     }
                     else if (xc >= 0 && xc < 8 && yc >= 0 && yc < 8)
@@ -46,24 +55,27 @@ class Hand
                     }
                     else
                     {
+                      //клик вне области
                         xc = -1;
                         yc = -1;
                     }
                     break;
                 case SDL_WINDOWEVENT:
+                  //изменение размера окна
                     if (windowEvent.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
                     {
                         board->reset_window_size();
                         break;
                     }
                 }
+              //если произошло значимое действие-выходим
                 if (resp != Response::OK)
                     break;
             }
         }
         return {resp, xc, yc};
     }
-
+   //ожидание события (используются после завершения игры)
     Response wait() const
     {
         SDL_Event windowEvent;
@@ -75,14 +87,15 @@ class Hand
                 switch (windowEvent.type)
                 {
                 case SDL_QUIT:
-                    resp = Response::QUIT;
+                    resp = Response::QUIT;//выход
                     break;
-                case SDL_WINDOWEVENT_SIZE_CHANGED:
+                case SDL_WINDOWEVENT_SIZE_CHANGED://изменение размера окна
                     board->reset_window_size();
                     break;
                 case SDL_MOUSEBUTTONDOWN: {
                     int x = windowEvent.motion.x;
                     int y = windowEvent.motion.y;
+                  //проверка кликов по кнопке Replay
                     int xc = int(y / (board->H / 10) - 1);
                     int yc = int(x / (board->W / 10) - 1);
                     if (xc == -1 && yc == 8)
@@ -98,5 +111,5 @@ class Hand
     }
 
   private:
-    Board *board;
+    Board *board;//указатель на игровую доску
 };
