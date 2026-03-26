@@ -5,7 +5,7 @@
 
 #include "../Models/Move.h"
 #include "../Models/Project_path.h"
-
+//подключение SDL зависимость от платформы
 #ifdef __APPLE__
     #include <SDL2/SDL.h>
     #include <SDL2/SDL_image.h>
@@ -15,23 +15,28 @@
 #endif
 
 using namespace std;
-
+//Класс Board отвечает за:
+//-хранение состояния доски 
+//-отрисовку(рендеринг)
+//-управление фигурами
 class Board
 {
 public:
     Board() = default;
+     //конструктор с размерами окна
     Board(const unsigned int W, const unsigned int H) : W(W), H(H)
     {
     }
 
     // draws start board
+   //инициализация SDL и отрисовка стартого состояния доски
     int start_draw()
-    {
+    {.    //ИнциализацияSDL
         if (SDL_Init(SDL_INIT_EVERYTHING) != 0)
         {
             print_exception("SDL_Init can't init SDL2 lib");
             return 1;
-        }
+        }.   //если размер окна не задан - берём размер экрана
         if (W == 0 || H == 0)
         {
             SDL_DisplayMode dm;
@@ -43,19 +48,19 @@ public:
             W = min(dm.w, dm.h);
             W -= W / 15;
             H = W;
-        }
+        }.  //создание окна
         win = SDL_CreateWindow("Checkers", 0, H / 30, W, H, SDL_WINDOW_RESIZABLE);
         if (win == nullptr)
         {
             print_exception("SDL_CreateWindow can't create window");
             return 1;
-        }
+        }.  //Создание рендера (ускоренного)
         ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
         if (ren == nullptr)
         {
             print_exception("SDL_CreateRenderer can't create renderer");
             return 1;
-        }
+        }. //загрузка текстур
         board = IMG_LoadTexture(ren, board_path.c_str());
         w_piece = IMG_LoadTexture(ren, piece_white_path.c_str());
         b_piece = IMG_LoadTexture(ren, piece_black_path.c_str());
@@ -63,59 +68,68 @@ public:
         b_queen = IMG_LoadTexture(ren, queen_black_path.c_str());
         back = IMG_LoadTexture(ren, back_path.c_str());
         replay = IMG_LoadTexture(ren, replay_path.c_str());
+          //проверка загрузки текстур
         if (!board || !w_piece || !b_piece || !w_queen || !b_queen || !back || !replay)
         {
             print_exception("IMG_LoadTexture can't load main textures from " + textures_path);
             return 1;
-        }
+        }.  //получаем реальные размеры окна
         SDL_GetRendererOutputSize(ren, &W, &H);
+       //создаем стартовую матрицу шашек
         make_start_mtx();
+      //перерисовываем
         rerender();
         return 0;
     }
-
+    //сброс игры
     void redraw()
     {
-        game_results = -1;
-        history_mtx.clear();
-        history_beat_series.clear();
-        make_start_mtx();
-        clear_active();
-        clear_highlight();
+        game_results = -1; // сброс результата
+        history_mtx.clear();//очистка истории
+        history_beat_series.clear();//
+        make_start_mtx();//новая стартовая позиция
+        clear_active();// убрать выделение
+        clear_highlight();//убрать подсветку
     }
-
+   //ход с использованием структуры move_pos
     void move_piece(move_pos turn, const int beat_series = 0)
-    {
+    {.   //если была съедена фигура то удаляем её
         if (turn.xb != -1)
         {
             mtx[turn.xb][turn.yb] = 0;
-        }
+        }. //основной ход
         move_piece(turn.x, turn.y, turn.x2, turn.y2, beat_series);
     }
-
+      //перемещение фигуры
     void move_piece(const POS_T i, const POS_T j, const POS_T i2, const POS_T j2, const int beat_series = 0)
     {
         if (mtx[i2][j2])
         {
+            //проверка:конечная клетка должна быть пустой
             throw runtime_error("final position is not empty, can't move");
         }
+       //  Проверка начальная клетка должна содержать фигуру
         if (!mtx[i][j])
         {
             throw runtime_error("begin position is empty, can't move");
         }
-        if ((mtx[i][j] == 1 && i2 == 0) || (mtx[i][j] == 2 && i2 == 7))
+        //превращение в дамку
+
+     if ((mtx[i][j] == 1 && i2 == 0) || (mtx[i][j] == 2 && i2 == 7))
             mtx[i][j] += 2;
+        //перемещение
         mtx[i2][j2] = mtx[i][j];
         drop_piece(i, j);
+        //сохраняем в историю
         add_history(beat_series);
     }
-
+     //удаление фигуры с клетки
     void drop_piece(const POS_T i, const POS_T j)
     {
         mtx[i][j] = 0;
         rerender();
     }
-
+     //превращение в дамку
     void turn_into_queen(const POS_T i, const POS_T j)
     {
         if (mtx[i][j] == 0 || mtx[i][j] > 2)
@@ -125,11 +139,12 @@ public:
         mtx[i][j] += 2;
         rerender();
     }
+     //получить текущие состоянии доски
     vector<vector<POS_T>> get_board() const
     {
         return mtx;
     }
-
+      //подсветка возможных ходов
     void highlight_cells(vector<pair<POS_T, POS_T>> cells)
     {
         for (auto pos : cells)
@@ -139,7 +154,7 @@ public:
         }
         rerender();
     }
-
+ //  Очистка подсветки 
     void clear_highlight()
     {
         for (POS_T i = 0; i < 8; ++i)
@@ -148,39 +163,41 @@ public:
         }
         rerender();
     }
-
+     //выделение активной клетки
     void set_active(const POS_T x, const POS_T y)
     {
         active_x = x;
         active_y = y;
         rerender();
     }
-
+     //сброс активной клетки
     void clear_active()
     {
         active_x = -1;
         active_y = -1;
         rerender();
     }
-
+  //проверка подсвеченная ли клетка
     bool is_highlighted(const POS_T x, const POS_T y)
     {
         return is_highlighted_[x][y];
     }
-
+    //откат хода( undo)
     void rollback()
     {
+        //количество ходов в серии (например,при множественном взятии)
         auto beat_series = max(1, *(history_beat_series.rbegin()));
         while (beat_series-- && history_mtx.size() > 1)
         {
             history_mtx.pop_back();
             history_beat_series.pop_back();
         }
+        //восстановление состояния
         mtx = *(history_mtx.rbegin());
         clear_highlight();
         clear_active();
     }
-
+  //отображение результата игры
     void show_final(const int res)
     {
         game_results = res;
@@ -188,12 +205,13 @@ public:
     }
 
     // use if window size changed
+//обновление размеров окна
     void reset_window_size()
     {
         SDL_GetRendererOutputSize(ren, &W, &H);
         rerender();
     }
-
+    //очистка ресурсов SDL
     void quit()
     {
         SDL_DestroyTexture(board);
@@ -207,7 +225,7 @@ public:
         SDL_DestroyWindow(win);
         SDL_Quit();
     }
-
+  //деструктор 
     ~Board()
     {
         if (win)
@@ -215,12 +233,14 @@ public:
     }
 
 private:
+    //добавление состояния в историю
     void add_history(const int beat_series = 0)
     {
         history_mtx.push_back(mtx);
         history_beat_series.push_back(beat_series);
     }
     // function to make start matrix
+     //создание стартовой расстановки шашек
     void make_start_mtx()
     {
         for (POS_T i = 0; i < 8; ++i)
@@ -228,8 +248,10 @@ private:
             for (POS_T j = 0; j < 8; ++j)
             {
                 mtx[i][j] = 0;
+                //чёрные сверху
                 if (i < 3 && (i + j) % 2 == 1)
                     mtx[i][j] = 2;
+                //белые снизу
                 if (i > 4 && (i + j) % 2 == 1)
                     mtx[i][j] = 1;
             }
@@ -238,6 +260,7 @@ private:
     }
 
     // function that re-draw all the textures
+     // полная перерисовка экрана
     void rerender()
     {
         // draw board
@@ -245,6 +268,7 @@ private:
         SDL_RenderCopy(ren, board, NULL, NULL);
 
         // draw pieces
+        //отрисовка фигур
         for (POS_T i = 0; i < 8; ++i)
         {
             for (POS_T j = 0; j < 8; ++j)
@@ -256,6 +280,7 @@ private:
                 SDL_Rect rect{ wpos, hpos, W / 12, H / 12 };
 
                 SDL_Texture* piece_texture;
+                //выбор текстуры по типу фигуры
                 if (mtx[i][j] == 1)
                     piece_texture = w_piece;
                 else if (mtx[i][j] == 2)
@@ -268,7 +293,7 @@ private:
                 SDL_RenderCopy(ren, piece_texture, NULL, &rect);
             }
         }
-
+   //далее идёт отрисовка подсветки активной клетки и UI
         // draw hilight
         SDL_SetRenderDrawColor(ren, 0, 255, 0, 0);
         const double scale = 2.5;
