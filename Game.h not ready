@@ -7,10 +7,11 @@
 #include "Config.h"
 #include "Hand.h"
 #include "Logic.h"
-
+//основной игровой класс
 class Game
 {
   public:
+//конструктор:создает доску,руку,логику и очищает лог
     Game() : board(config("WindowSize", "Width"), config("WindowSize", "Hight")), hand(&board), logic(&board, &config)
     {
         ofstream fout(project_path + "log.txt", ios_base::trunc);
@@ -18,9 +19,11 @@ class Game
     }
 
     // to start checkers
+//Основной игровой цикл
     int play()
     {
         auto start = chrono::steady_clock::now();
+      //если Replay перезагружаем конфиг,доску, логику
         if (is_replay)
         {
             logic = Logic(&board, &config);
@@ -29,23 +32,26 @@ class Game
         }
         else
         {
-            board.start_draw();
+            board.start_draw();//запускае мновое окно
         }
         is_replay = false;
 
         int turn_num = -1;
         bool is_quit = false;
         const int Max_turns = config("Game", "MaxNumTurns");
-        while (++turn_num < Max_turns)
+      //цикл ходов 
+      while (++turn_num < Max_turns)
         {
             beat_series = 0;
-            logic.find_turns(turn_num % 2);
+          //находим все возможные ходы для  текущего игрока
+          logic.find_turns(turn_num % 2);
             if (logic.turns.empty())
                 break;
-            logic.Max_depth = config("Bot", string((turn_num % 2) ? "Black" : "White") + string("BotLevel"));
-            if (!config("Bot", string("Is") + string((turn_num % 2) ? "Black" : "White") + string("Bot")))
+         //устанавливаем глубину для бота
+          logic.Max_depth = config("Bot", string((turn_num % 2) ? "Black" : "White") + string("BotLevel"));
+          //ход игрока или бота  if (!config("Bot", string("Is") + string((turn_num % 2) ? "Black" : "White") + string("Bot")))
             {
-                auto resp = player_turn(turn_num % 2);
+                auto resp = player_turn(turn_num % 2);//ход игрока
                 if (resp == Response::QUIT)
                 {
                     is_quit = true;
