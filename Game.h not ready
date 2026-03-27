@@ -32,7 +32,7 @@ class Game
         }
         else
         {
-            board.start_draw();//запускае мновое окно
+            board.start_draw();//запускаем новое окно и рисуем доску
         }
         is_replay = false;
 
@@ -62,7 +62,7 @@ class Game
                     is_replay = true;
                     break;
                 }
-                else if (resp == Response::BACK)
+                else if (resp == Response::BACK) //откат хода
                 {
                     if (config("Bot", string("Is") + string((1 - turn_num % 2) ? "Black" : "White") + string("Bot")) &&
                         !beat_series && board.history_mtx.size() > 2)
@@ -79,18 +79,20 @@ class Game
                 }
             }
             else
-                bot_turn(turn_num % 2);
+                bot_turn(turn_num % 2);   // ход бота
         }
+         //логируем время игры
         auto end = chrono::steady_clock::now();
         ofstream fout(project_path + "log.txt", ios_base::app);
         fout << "Game time: " << (int)chrono::duration<double, milli>(end - start).count() << " millisec\n";
         fout.close();
-
+        //обработка реплея или выхода 
         if (is_replay)
             return play();
         if (is_quit)
             return 0;
         int res = 2;
+        //определяем результат игры
         if (turn_num == Max_turns)
         {
             res = 0;
@@ -100,7 +102,7 @@ class Game
             res = 1;
         }
         board.show_final(res);
-        auto resp = hand.wait();
+        auto resp = hand.wait(); //ждем реплей
         if (resp == Response::REPLAY)
         {
             is_replay = true;
@@ -110,14 +112,15 @@ class Game
     }
 
   private:
+//ход бота
     void bot_turn(const bool color)
     {
         auto start = chrono::steady_clock::now();
 
-        auto delay_ms = config("Bot", "BotDelayMS");
+        auto delay_ms = config("Bot", "BotDelayMS");//задержка между ходами 
         // new thread for equal delay for each turn
-        thread th(SDL_Delay, delay_ms);
-        auto turns = logic.find_best_turns(color);
+        thread th(SDL_Delay, delay_ms);//отдельный поток для задержки
+        auto turns = logic.find_best_turns(color);//вычмсляем лучший ход
         th.join();
         bool is_first = true;
         // making moves
@@ -126,10 +129,10 @@ class Game
             if (!is_first)
             {
                 SDL_Delay(delay_ms);
-            }
+            }.  // пауза между последовательными ударами 
             is_first = false;
             beat_series += (turn.xb != -1);
-            board.move_piece(turn, beat_series);
+            board.move_piece(turn, beat_series);// делаем ход на доске
         }
 
         auto end = chrono::steady_clock::now();
@@ -137,7 +140,7 @@ class Game
         fout << "Bot turn time: " << (int)chrono::duration<double, milli>(end - start).count() << " millisec\n";
         fout.close();
     }
-
+    //ход игрока
     Response player_turn(const bool color)
     {
         // return 1 if quit
@@ -147,8 +150,10 @@ class Game
             cells.emplace_back(turn.x, turn.y);
         }
         board.highlight_cells(cells);
+//подсвечиваем возможные клетки 
         move_pos pos = {-1, -1, -1, -1};
         POS_T x = -1, y = -1;
+        //ждем пока игрок выберет корректный ход
         // trying to make first move
         while (true)
         {
@@ -156,7 +161,7 @@ class Game
             if (get<0>(resp) != Response::CELL)
                 return get<0>(resp);
             pair<POS_T, POS_T> cell{get<1>(resp), get<2>(resp)};
-
+          //проверка корректности выбранной клетки 
             bool is_correct = false;
             for (auto turn : logic.turns)
             {
@@ -177,6 +182,7 @@ class Game
             {
                 if (x != -1)
                 {
+                  //выполняем выбранный ход
                     board.clear_active();
                     board.clear_highlight();
                     board.highlight_cells(cells);
@@ -205,6 +211,7 @@ class Game
         if (pos.xb == -1)
             return Response::OK;
         // continue beating while can
+        //продолжаем серию ударов если возможно
         beat_series = 1;
         while (true)
         {
@@ -252,10 +259,10 @@ class Game
     }
 
   private:
-    Config config;
-    Board board;
-    Hand hand;
-    Logic logic;
-    int beat_series;
-    bool is_replay = false;
+    Config config; //настройка игры 
+    Board board;  //игровая доска
+    Hand hand;  //обработка ввода игрока
+    Logic logic; //игровая логика
+    int beat_series; // текущая серия 
+    bool is_replay = false; //флаг реплея
 };
